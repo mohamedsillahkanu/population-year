@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICF-SL Population Choropleth Maps</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #ffffff;
+            font-family: 'Oswald', Arial, sans-serif;
+            color: #000000;
+            font-weight: 500;
+            padding: 20px;
+        }
+
+        .page-container { width: 100%; max-width: 1400px; margin: 0 auto; }
+
+        .page-header {
+            background-color: #004080;
+            color: #ffffff;
+            padding: 25px 30px;
+            text-align: center;
+            margin-bottom: 15px;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .logo-row { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 15px; }
+
+        .logo-box {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-box img { width: 100px; height: auto; border-radius: 6px; }
+
+        .page-header h3 { margin: 12px 0 5px; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+        .page-header .tagline { margin: 0; font-size: 10px; font-weight: 500; font-style: italic; }
+        .page-header h1 { margin: 20px 0 10px; font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+        .page-header .subtitle { font-size: 14px; font-weight: 500; }
+
+        .content-card {
+            border: 4px double #004080;
+            border-radius: 12px;
+            padding: 12px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+
+        .content-inner { padding: 25px; }
+
+        .upload-section {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 2px dashed #004080;
+            text-align: center;
+            margin: 1.5rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover { border-color: #0056b3; background: #e7f3ff; }
+        .upload-section h3 { color: #004080; margin-bottom: 1rem; font-size: 18px; font-weight: 700; }
+        .upload-section p { color: #000; font-weight: 500; font-size: 14px; }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            background: #004080;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 6px;
+            border: 2px solid #004080;
+            font-size: 14px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Oswald', Arial, sans-serif;
+            margin-top: 1rem;
+        }
+
+        .file-input-wrapper:hover { background: #0056b3; border-color: #0056b3; }
+        .file-input-wrapper input[type="file"] { position: absolute; left: -9999px; }
+
+        .section-header {
+            background-color: #004080;
+            color: #ffffff;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-icon {
+            background: #ffffff;
+            color: #004080;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .section-title { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+        }
+
+        .stats-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 2px solid #004080;
+            transition: all 0.2s;
+        }
+
+        .stats-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,64,128,0.2); }
+        .stats-card h4 { color: #666; font-size: 11px; margin-bottom: 0.5rem; text-transform: uppercase; }
+        .stats-card .metric-value { font-size: 1.5rem; color: #004080; margin-bottom: 0.25rem; font-weight: 700; }
+        .stats-card p { color: #666; font-size: 11px; }
+
+        .btn {
+            padding: 14px 24px;
+            border: 2px solid #004080;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Oswald', Arial, sans-serif;
+            transition: all 0.2s;
+            margin: 5px;
+        }
+
+        .btn-primary { background: #004080; color: #ffffff; }
+        .btn-primary:hover { background: #0056b3; border-color: #0056b3; }
+        .btn-secondary { background: #ffffff; color: #004080; }
+        .btn-secondary:hover { background: #004080; color: #ffffff; }
+        .btn-gold { background: #ffc107; color: #000000; border-color: #ffc107; }
+        .btn-gold:hover { background: #e0a800; border-color: #e0a800; }
+        .btn-success { background: #28a745; color: #ffffff; border-color: #28a745; }
+        .btn-success:hover { background: #218838; border-color: #218838; }
+
+        .alert { padding: 1rem; border-radius: 6px; margin: 1rem 0; font-weight: 500; }
+        .alert-success { background: #d4edda; border: 2px solid #28a745; color: #155724; }
+        .alert-error { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; }
+        .alert-info { background: #e7f3ff; border: 2px solid #004080; color: #004080; }
+
+        .info-message {
+            background: #e7f3ff;
+            color: #004080;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 2px solid #004080;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+
+        /* Population scale badge */
+        .scale-badge {
+            display: inline-block;
+            background: #004080;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-left: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .scale-info-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .scale-info-box h5 { color: #856404; margin-bottom: 0.5rem; font-size: 14px; font-weight: 700; }
+        .scale-info-box p { color: #856404; font-size: 13px; }
+
+        .hidden { display: none !important; }
+
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 700; color: #004080; }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #004080;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #ffffff;
+            color: #000000;
+            font-family: 'Oswald', Arial, sans-serif;
+            font-weight: 500;
+        }
+
+        .form-control:focus { outline: none; border-color: #0056b3; box-shadow: 0 0 0 3px rgba(0,64,128,0.1); }
+
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+
+        .config-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 2px solid #004080;
+            margin: 1rem 0;
+        }
+
+        .config-card h4 { color: #004080; margin-bottom: 1rem; font-size: 16px; font-weight: 700; }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+            border: 2px solid #004080;
+            border-radius: 6px;
+            background: #ffffff;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        .checkbox-item:hover { background: #e7f3ff; }
+        .checkbox-item input { margin-right: 0.75rem; accent-color: #004080; width: 18px; height: 18px; }
+
+        .loading-spinner {
+            border: 4px solid #e7f3ff;
+            border-top: 4px solid #004080;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }
+
+        .feature-card { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 2px solid #004080; }
+        .feature-card h4 { color: #004080; margin-bottom: 1rem; font-size: 16px; font-weight: 700; text-transform: uppercase; }
+        .feature-card ol, .feature-card ul { color: #000; line-height: 1.8; padding-left: 1.5rem; }
+        .feature-card li { margin-bottom: 0.5rem; font-weight: 500; font-size: 14px; }
+        .feature-card strong { color: #004080; }
+
+        .color-palette-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0; }
+
+        .color-palette-option { border: 3px solid transparent; border-radius: 8px; padding: 0.5rem; cursor: pointer; transition: all 0.2s; }
+        .color-palette-option:hover { border-color: #004080; }
+        .color-palette-option.selected { border-color: #004080; background: #e7f3ff; }
+        .color-palette-option label { display: block; text-align: center; font-weight: 700; color: #004080; margin-bottom: 0.5rem; cursor: pointer; font-size: 12px; }
+
+        .palette-preview { display: flex; height: 30px; border-radius: 4px; overflow: hidden; }
+        .palette-preview div { flex: 1; }
+
+        .maps-container { display: grid; gap: 20px; margin: 1.5rem 0; }
+
+        .map-wrapper {
+            background: #ffffff;
+            border: 2px solid #004080;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .map-wrapper h5 { color: #004080; margin-bottom: 10px; font-size: 16px; font-weight: 700; }
+
+        .map-canvas { border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; }
+
+        .legend-container { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #ddd; }
+        .legend-title { font-weight: 700; color: #004080; margin-bottom: 8px; font-size: 12px; }
+        .legend-scale { display: flex; align-items: center; gap: 5px; }
+        .legend-gradient { flex: 1; height: 20px; border-radius: 4px; }
+        .legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: #666; margin-top: 5px; }
+
+        .shared-legend { background: #ffffff; border: 2px solid #004080; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .shared-legend h4 { color: #004080; margin-bottom: 15px; font-size: 16px; font-weight: 700; text-align: center; }
+
+        .table-container { max-height: 400px; overflow: auto; border: 2px solid #004080; border-radius: 6px; }
+
+        .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .results-table th { background: #004080; color: #ffffff; padding: 0.75rem; text-align: left; font-weight: 700; position: sticky; top: 0; }
+        .results-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #ddd; }
+        .results-table tr:nth-child(even) { background: #f8f9fa; }
+
+        .page-footer {
+            background-color: #004080;
+            color: #ffffff;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 13px;
+            line-height: 1.7;
+            font-weight: 500;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .page-footer p { margin: 6px 0 0; font-size: 12px; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f8f9fa; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #004080; border-radius: 4px; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .content-inner { padding: 15px; }
+            .page-header h1 { font-size: 20px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="page-container">
+
+    <div class="page-header">
+        <div class="logo-row">
+            <div class="logo-box">
+                <img src="https://github.com/mohamedsillahkanu/gdp-dashboard-2/raw/6c7463b0d5c3be150aafae695a4bcbbd8aeb1499/ICF-SL.jpg" alt="ICF-SL Logo">
+            </div>
+        </div>
+        <h3>Informatics Consultancy Firm-Sierra Leone (ICF-SL)</h3>
+        <p class="tagline">Driving Data-Driven Solutions for Health and Development</p>
+        <h1>POPULATION CHOROPLETH MAPS</h1>
+        <p class="subtitle">Visualize Population Distribution by Year with Adaptive Scale &amp; Customizable Maps</p>
+    </div>
+
+    <div class="content-card">
+        <div class="content-inner">
+
+            <div id="alertContainer"></div>
+
+            <!-- Upload Section -->
+            <div id="uploadSection">
+
+                <div class="upload-section">
+                    <h3>STEP 1: UPLOAD YOUR DATA FILE</h3>
+                    <p>Upload a CSV or Excel file with Year and Population columns</p>
+                    <label class="file-input-wrapper">
+                        Choose Data File
+                        <input type="file" id="dataFileInput" accept=".csv,.xlsx,.xls">
+                    </label>
+                    <div id="dataFileName" style="margin-top:10px;color:#28a745;font-weight:700;"></div>
+                </div>
+
+                <div class="upload-section">
+                    <h3>STEP 2: UPLOAD SHAPEFILE (FOR MAPS)</h3>
+                    <p>Upload Shapefile components for geographic boundaries</p>
+
+                    <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:1rem;">
+                        <div style="text-align:center;">
+                            <label class="file-input-wrapper" style="background:#17a2b8;border-color:#17a2b8;">
+                                Upload Shapefile (.zip)
+                                <input type="file" id="shapefileZipInput" accept=".zip">
+                            </label>
+                            <p style="font-size:11px;color:#666;margin-top:5px;">Recommended: Zipped shapefile folder</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px dashed #ddd;">
+                        <p style="font-size:12px;color:#666;margin-bottom:10px;"><strong>Or upload individual shapefile components:</strong></p>
+                        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                            <div>
+                                <label class="file-input-wrapper" style="padding:10px 16px;font-size:12px;">.SHP File *<input type="file" id="shpFileInput" accept=".shp"></label>
+                                <div id="shpFileName" style="font-size:11px;color:#28a745;margin-top:3px;"></div>
+                            </div>
+                            <div>
+                                <label class="file-input-wrapper" style="padding:10px 16px;font-size:12px;">.DBF File *<input type="file" id="dbfFileInput" accept=".dbf"></label>
+                                <div id="dbfFileName" style="font-size:11px;color:#28a745;margin-top:3px;"></div>
+                            </div>
+                            <div>
+                                <label class="file-input-wrapper" style="padding:10px 16px;font-size:12px;background:#6c757d;border-color:#6c757d;">.SHX File<input type="file" id="shxFileInput" accept=".shx"></label>
+                                <div id="shxFileName" style="font-size:11px;color:#28a745;margin-top:3px;"></div>
+                            </div>
+                            <div>
+                                <label class="file-input-wrapper" style="padding:10px 16px;font-size:12px;background:#6c757d;border-color:#6c757d;">.PRJ File<input type="file" id="prjFileInput" accept=".prj"></label>
+                                <div id="prjFileName" style="font-size:11px;color:#28a745;margin-top:3px;"></div>
+                            </div>
+                        </div>
+                        <p style="font-size:10px;color:#999;margin-top:8px;">* Required files</p>
+                        <button id="processShapefilesBtn" class="btn btn-primary" style="margin-top:15px;" onclick="processShapefiles()" disabled>Process Shapefile Components</button>
+                    </div>
+
+                    <div id="geoFileName" style="margin-top:15px;color:#28a745;font-weight:700;"></div>
+                </div>
+
+                <div id="uploadProgress" class="hidden">
+                    <div class="loading-spinner"></div>
+                    <p style="text-align:center;">Processing your files...</p>
+                </div>
+
+                <div class="section-header">
+                    <span class="section-icon">?</span>
+                    <span class="section-title">HOW IT WORKS</span>
+                </div>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>Data Mapping</h4>
+                        <ol>
+                            <li><strong>Upload:</strong> CSV/Excel with population data</li>
+                            <li><strong>Select:</strong> Year &amp; Population columns</li>
+                            <li><strong>Merge:</strong> Match data to shapefile locations</li>
+                            <li><strong>Visualize:</strong> Per-year choropleth maps</li>
+                            <li><strong>Export:</strong> PNG maps &amp; Excel/CSV data</li>
+                        </ol>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Smart Population Scale</h4>
+                        <ul>
+                            <li><strong>Auto-detect:</strong> Reads your actual max value</li>
+                            <li><strong>&lt; 1,000:</strong> Raw numbers (e.g. 450)</li>
+                            <li><strong>≥ 1,000:</strong> K suffix (e.g. 12.5K)</li>
+                            <li><strong>≥ 1,000,000:</strong> M suffix (e.g. 3.2M)</li>
+                            <li><strong>≥ 1,000,000,000:</strong> B suffix (e.g. 1.4B)</li>
+                        </ul>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Scale Modes</h4>
+                        <ul>
+                            <li><strong>Global:</strong> One scale across all years</li>
+                            <li><strong>Per-Year:</strong> Each map scales to its year</li>
+                            <li><strong>Log scale:</strong> For skewed distributions</li>
+                            <li><strong>Equal intervals:</strong> Even class breaks</li>
+                            <li><strong>Quantile:</strong> Equal-count class breaks</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Config Section -->
+            <div id="configSection" class="hidden">
+                <div class="section-header">
+                    <span class="section-icon">⚙</span>
+                    <span class="section-title">CONFIGURE POPULATION MAP</span>
+                </div>
+
+                <!-- Auto-detected scale hint -->
+                <div id="scaleDetectionBox" class="scale-info-box hidden">
+                    <h5>📊 Auto-Detected Population Scale</h5>
+                    <p id="scaleDetectionText"></p>
+                    <p style="font-size:11px;color:#856404;margin-top:4px;">Scale is chosen purely from your data's maximum value — no geographic assumptions.</p>
+                </div>
+
+                <div class="config-card">
+                    <h4>Column Mappings</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="populationColumn">Population Column</label>
+                            <select id="populationColumn" class="form-control" onchange="onPopColumnChange()">
+                                <option value="">-- Select Column --</option>
+                            </select>
+                            <small style="color:#666;font-size:12px;">Numeric population values</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="yearColumn">Year Column</label>
+                            <select id="yearColumn" class="form-control" onchange="onYearColumnChange()">
+                                <option value="">-- Select Column --</option>
+                            </select>
+                            <small style="color:#666;font-size:12px;">Year for grouping data</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-card">
+                    <h4>Geographic Merge Configuration (Inner Join)</h4>
+                    <div class="info-message" style="margin-bottom:1rem;">
+                        <strong>How merging works:</strong> Select matching columns from your Excel data and Shapefile attributes.
+                        Data will be joined where ALL selected columns match. Only locations found in BOTH datasets appear on the map.
+                        <br><br>
+                        <strong>Important:</strong> Select columns in the SAME ORDER (e.g., District ↔ DNAME, then Chiefdom ↔ CHNAME)
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Excel Data Columns (for merge)</label>
+                            <div class="checkbox-group" id="excelColumnsCheckbox"></div>
+                            <small style="color:#666;font-size:12px;">Check columns to use for merging (order matters)</small>
+                            <div id="selectedExcelCols" style="margin-top:8px;padding:8px;background:#e7f3ff;border-radius:4px;font-size:12px;min-height:30px;">
+                                <strong>Selected:</strong> <span id="excelColsList">None</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Shapefile Properties (for merge)</label>
+                            <div class="checkbox-group" id="shapePropsCheckbox"></div>
+                            <small style="color:#666;font-size:12px;">Check matching properties in SAME order</small>
+                            <div id="selectedShapeCols" style="margin-top:8px;padding:8px;background:#fff3cd;border-radius:4px;font-size:12px;min-height:30px;">
+                                <strong>Selected:</strong> <span id="shapeColsList">None</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mergePreview" class="hidden" style="margin-top:1rem;padding:1rem;background:#d4edda;border:2px solid #28a745;border-radius:6px;">
+                        <strong style="color:#155724;">Merge Preview:</strong>
+                        <div id="mergePreviewContent" style="margin-top:0.5rem;font-size:13px;"></div>
+                    </div>
+
+                    <div style="margin-top:1rem;">
+                        <button class="btn btn-secondary" onclick="clearMergeSelections()">Clear Selections</button>
+                        <button class="btn btn-primary" onclick="previewMerge()">Preview Merge</button>
+                    </div>
+                </div>
+
+                <div class="config-card">
+                    <h4>Map Layout</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mapColumns">Columns per Row</label>
+                            <select id="mapColumns" class="form-control">
+                                <option value="1">1 Column</option>
+                                <option value="2">2 Columns</option>
+                                <option value="3">3 Columns</option>
+                                <option value="4" selected>4 Columns</option>
+                                <option value="5">5 Columns</option>
+                                <option value="6">6 Columns</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="mapWidth">Map Width (px)</label>
+                            <input type="number" id="mapWidth" class="form-control" value="300" min="150" max="600">
+                        </div>
+                        <div class="form-group">
+                            <label for="mapHeight">Map Height (px)</label>
+                            <input type="number" id="mapHeight" class="form-control" value="250" min="150" max="600">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="legendType">Legend Display</label>
+                            <select id="legendType" class="form-control">
+                                <option value="individual">Individual per Map</option>
+                                <option value="shared">Shared (all maps)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="scaleScope">Scale Scope</label>
+                            <select id="scaleScope" class="form-control">
+                                <option value="global">Global (all years same scale)</option>
+                                <option value="peryear">Per-Year (each year's own scale)</option>
+                            </select>
+                            <small style="color:#666;font-size:12px;">Global lets you compare across years</small>
+                        </div>
+                    </div>
+                    <div class="info-message" style="margin-top:1rem;">
+                        <strong>Continuous gradient scale:</strong> Each location is coloured by smoothly interpolating from the palette's lightest colour (minimum population) to its darkest (maximum). No category bins — every value gets a precise colour.
+                    </div>
+                </div>
+
+                <div class="config-card">
+                    <h4>Select Color Palette</h4>
+                    <div class="color-palette-grid" id="colorPaletteGrid">
+                        <div class="color-palette-option selected" data-palette="blues" onclick="selectPalette(this)">
+                            <label>Blues</label>
+                            <div class="palette-preview">
+                                <div style="background:#f7fbff;"></div><div style="background:#c6dbef;"></div>
+                                <div style="background:#6baed6;"></div><div style="background:#2171b5;"></div><div style="background:#084594;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="reds" onclick="selectPalette(this)">
+                            <label>Reds</label>
+                            <div class="palette-preview">
+                                <div style="background:#fff5f0;"></div><div style="background:#fcbba1;"></div>
+                                <div style="background:#fb6a4a;"></div><div style="background:#cb181d;"></div><div style="background:#67000d;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="greens" onclick="selectPalette(this)">
+                            <label>Greens</label>
+                            <div class="palette-preview">
+                                <div style="background:#f7fcf5;"></div><div style="background:#c7e9c0;"></div>
+                                <div style="background:#74c476;"></div><div style="background:#238b45;"></div><div style="background:#00441b;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="oranges" onclick="selectPalette(this)">
+                            <label>Oranges</label>
+                            <div class="palette-preview">
+                                <div style="background:#fff5eb;"></div><div style="background:#fdd0a2;"></div>
+                                <div style="background:#fd8d3c;"></div><div style="background:#d94801;"></div><div style="background:#7f2704;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="purples" onclick="selectPalette(this)">
+                            <label>Purples</label>
+                            <div class="palette-preview">
+                                <div style="background:#fcfbfd;"></div><div style="background:#dadaeb;"></div>
+                                <div style="background:#9e9ac8;"></div><div style="background:#6a51a3;"></div><div style="background:#3f007d;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="viridis" onclick="selectPalette(this)">
+                            <label>Viridis</label>
+                            <div class="palette-preview">
+                                <div style="background:#440154;"></div><div style="background:#3b528b;"></div>
+                                <div style="background:#21918c;"></div><div style="background:#5ec962;"></div><div style="background:#fde725;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="plasma" onclick="selectPalette(this)">
+                            <label>Plasma</label>
+                            <div class="palette-preview">
+                                <div style="background:#0d0887;"></div><div style="background:#7e03a8;"></div>
+                                <div style="background:#cc4778;"></div><div style="background:#f89540;"></div><div style="background:#f0f921;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="rdylgn" onclick="selectPalette(this)">
+                            <label>Red-Yellow-Green</label>
+                            <div class="palette-preview">
+                                <div style="background:#1a9850;"></div><div style="background:#91cf60;"></div>
+                                <div style="background:#ffffbf;"></div><div style="background:#fc8d59;"></div><div style="background:#d73027;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="ylorbr" onclick="selectPalette(this)">
+                            <label>Yellow-Orange-Brown</label>
+                            <div class="palette-preview">
+                                <div style="background:#ffffe5;"></div><div style="background:#fec44f;"></div>
+                                <div style="background:#fe9929;"></div><div style="background:#d95f0e;"></div><div style="background:#662506;"></div>
+                            </div>
+                        </div>
+                        <div class="color-palette-option" data-palette="spectral" onclick="selectPalette(this)">
+                            <label>Spectral</label>
+                            <div class="palette-preview">
+                                <div style="background:#9e0142;"></div><div style="background:#f46d43;"></div>
+                                <div style="background:#ffffbf;"></div><div style="background:#66c2a5;"></div><div style="background:#5e4fa2;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-card">
+                    <h4>Select Years to Map</h4>
+                    <div class="checkbox-group" id="yearCheckboxes"></div>
+                    <div style="margin-top:1rem;">
+                        <button class="btn btn-secondary" onclick="selectAllYears()">Select All</button>
+                        <button class="btn btn-secondary" onclick="deselectAllYears()">Deselect All</button>
+                    </div>
+                </div>
+
+                <div style="text-align:center;margin-top:1.5rem;">
+                    <button class="btn btn-gold" onclick="generateMapsMain()">Generate Population Maps</button>
+                    <button class="btn btn-secondary" onclick="resetAll()">Start Over</button>
+                </div>
+            </div>
+
+            <!-- Processing -->
+            <div id="processingSection" class="hidden">
+                <div class="section-header">
+                    <span class="section-icon">⏳</span>
+                    <span class="section-title">PROCESSING</span>
+                </div>
+                <div class="config-card" style="text-align:center;">
+                    <div class="loading-spinner"></div>
+                    <p style="margin-top:1rem;font-weight:700;color:#004080;">Generating population choropleth maps...</p>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="resultsSection" class="hidden">
+                <div class="section-header">
+                    <span class="section-icon">✓</span>
+                    <span class="section-title">POPULATION MAPS & DATA</span>
+                </div>
+
+                <div class="stats-grid" id="summaryStats"></div>
+
+                <div id="sharedLegendContainer" class="shared-legend hidden">
+                    <h4 id="sharedLegendTitle">Population Legend</h4>
+                    <div id="sharedLegend"></div>
+                </div>
+
+                <div class="config-card">
+                    <h4>Choropleth Maps by Year</h4>
+                    <div class="maps-container" id="mapsContainer"></div>
+                </div>
+
+                <div class="config-card">
+                    <h4>Population Data by Location and Year</h4>
+                    <div class="table-container">
+                        <table class="results-table" id="popTable"></table>
+                    </div>
+                </div>
+
+                <div style="text-align:center;margin:2rem 0;">
+                    <button class="btn btn-success" onclick="downloadExcel()">Download Data (Excel)</button>
+                    <button class="btn btn-primary" onclick="downloadCSV()">Download Data (CSV)</button>
+                    <button class="btn btn-gold" onclick="downloadSubplotImage()">Download All as Subplot (PNG)</button>
+                    <button class="btn btn-secondary" onclick="downloadAllMapsIndividual()">Download Maps Individually</button>
+                    <button class="btn btn-secondary" onclick="backToConfig()">Change Settings</button>
+                    <button class="btn btn-secondary" onclick="resetAll()">Start Over</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="page-footer">
+        <p style="margin:0;font-weight:700;">National Malaria Control Programme</p>
+        <p>Ministry of Health and Sanitation, Sierra Leone</p>
+        <p style="font-size:11px;">Medical Stores Compound, Freetown, Sierra Leone</p>
+        <p style="font-size:10px;">© 2025 Informatics Consultancy Firm-Sierra Leone (ICF-SL)</p>
+    </div>
+</div>
+
+<script>
+// ─── GLOBALS ────────────────────────────────────────────────────────────────
+let rawData = null, geoData = null, popResults = null;
+let availableColumns = [], availableYears = [], geoProperties = [];
+let selectedPalette = 'blues';
+let shpBuffer = null, dbfBuffer = null, shxBuffer = null, prjBuffer = null;
+let selectedExcelColumns = [], selectedShapeColumns = [];
+let globalPopMin = 0, globalPopMax = 0;
+
+const colorPalettes = {
+    blues:    ['#f7fbff','#c6dbef','#6baed6','#2171b5','#084594'],
+    reds:     ['#fff5f0','#fcbba1','#fb6a4a','#cb181d','#67000d'],
+    greens:   ['#f7fcf5','#c7e9c0','#74c476','#238b45','#00441b'],
+    oranges:  ['#fff5eb','#fdd0a2','#fd8d3c','#d94801','#7f2704'],
+    purples:  ['#fcfbfd','#dadaeb','#9e9ac8','#6a51a3','#3f007d'],
+    viridis:  ['#440154','#3b528b','#21918c','#5ec962','#fde725'],
+    plasma:   ['#0d0887','#7e03a8','#cc4778','#f89540','#f0f921'],
+    rdylgn:   ['#1a9850','#91cf60','#ffffbf','#fc8d59','#d73027'],
+    ylorbr:   ['#ffffe5','#fec44f','#fe9929','#d95f0e','#662506'],
+    spectral: ['#9e0142','#f46d43','#ffffbf','#66c2a5','#5e4fa2']
+};
+
+// ─── POPULATION SCALE UTILITIES ─────────────────────────────────────────────
+// Purely data-driven: look at the actual max value, pick the unit that
+// makes numbers readable (avoids 0.0003B or 1200000 raw).
+function detectScaleMagnitude(values) {
+    const positives = values.filter(v => v > 0);
+    if (!positives.length) return { suffix: '', divisor: 1, label: 'People' };
+    const max = Math.max(...positives);
+
+    // Choose the largest unit where max / divisor >= 1
+    if (max >= 1e9)  return { suffix: 'B', divisor: 1e9,  label: 'Billions'  };
+    if (max >= 1e6)  return { suffix: 'M', divisor: 1e6,  label: 'Millions'  };
+    if (max >= 1e3)  return { suffix: 'K', divisor: 1e3,  label: 'Thousands' };
+    return           { suffix: '',  divisor: 1,    label: 'People'    };
+}
+
+function formatPopLabel(value, scale) {
+    if (value == null || isNaN(value)) return '?';
+    if (value === 0) return '0';
+    const v = value / scale.divisor;
+    // Show enough precision so labels aren't all "0K" or "0.00M"
+    if (v >= 1000) return Math.round(v).toLocaleString() + scale.suffix;
+    if (v >= 100)  return Math.round(v) + scale.suffix;
+    if (v >= 10)   return v.toFixed(1) + scale.suffix;
+    if (v >= 1)    return v.toFixed(2) + scale.suffix;
+    // value is below 1 unit — drop down one level for clarity
+    const fallback = scaleDown(scale);
+    const v2 = value / fallback.divisor;
+    if (v2 >= 100) return Math.round(v2) + fallback.suffix;
+    if (v2 >= 10)  return v2.toFixed(1) + fallback.suffix;
+    return v2.toFixed(0) + fallback.suffix;
+}
+
+// Returns the next smaller scale unit (used when a break value rounds to 0)
+function scaleDown(scale) {
+    if (scale.divisor === 1e9) return { suffix: 'M', divisor: 1e6, label: 'Millions' };
+    if (scale.divisor === 1e6) return { suffix: 'K', divisor: 1e3, label: 'Thousands' };
+    return { suffix: '', divisor: 1, label: 'People' };
+}
+
+function formatPopFull(value) {
+    if (value == null) return 'N/A';
+    return Number(value).toLocaleString();
+}
+
+// Compute class breaks for various methods
+
+
+
+
+function interpolatePalette(palette, t) {
+    const idx = Math.min(Math.floor(t * (palette.length - 1)), palette.length - 2);
+    const frac = t * (palette.length - 1) - idx;
+    return interpolateColor(palette[idx], palette[idx + 1], frac);
+}
+
+function interpolateColor(c1, c2, t) {
+    const a = hexToRgb(c1), b = hexToRgb(c2);
+    return `rgb(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)})`;
+}
+
+function hexToRgb(hex) {
+    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : {r:0,g:0,b:0};
+}
+
+// ─── EVENT LISTENERS ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('dataFileInput').addEventListener('change', handleDataFileUpload);
+    document.getElementById('shapefileZipInput').addEventListener('change', handleShapefileZipUpload);
+    document.getElementById('shpFileInput').addEventListener('change', e => { shpBuffer = null; const f=e.target.files[0]; if(!f)return; readBuf(f, b=>{shpBuffer=b; document.getElementById('shpFileName').textContent='✓ '+f.name; checkShpComponents();}); });
+    document.getElementById('dbfFileInput').addEventListener('change', e => { dbfBuffer = null; const f=e.target.files[0]; if(!f)return; readBuf(f, b=>{dbfBuffer=b; document.getElementById('dbfFileName').textContent='✓ '+f.name; checkShpComponents();}); });
+    document.getElementById('shxFileInput').addEventListener('change', e => { shxBuffer = null; const f=e.target.files[0]; if(!f)return; readBuf(f, b=>{shxBuffer=b; document.getElementById('shxFileName').textContent='✓ '+f.name;}); });
+    document.getElementById('prjFileInput').addEventListener('change', e => { prjBuffer = null; const f=e.target.files[0]; if(!f)return; readBuf(f, b=>{prjBuffer=b; document.getElementById('prjFileName').textContent='✓ '+f.name;}); });
+});
+
+function readBuf(file, cb) {
+    const r = new FileReader();
+    r.onload = e => cb(e.target.result);
+    r.readAsArrayBuffer(file);
+}
+
+// ─── ALERTS ──────────────────────────────────────────────────────────────────
+function showAlert(msg, type='info') {
+    const c = document.getElementById('alertContainer');
+    const d = document.createElement('div');
+    d.className = `alert alert-${type}`;
+    d.textContent = msg;
+    c.innerHTML = '';
+    c.appendChild(d);
+    setTimeout(() => { if(d.parentNode) d.parentNode.removeChild(d); }, 5000);
+}
+
+// ─── FILE UPLOAD ─────────────────────────────────────────────────────────────
+function handleDataFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    document.getElementById('uploadProgress').classList.remove('hidden');
+
+    if (ext === 'csv') {
+        Papa.parse(file, {
+            header: true, skipEmptyLines: true,
+            complete: res => {
+                rawData = res.data;
+                availableColumns = Object.keys(res.data[0] || {});
+                document.getElementById('dataFileName').textContent = `✓ Loaded: ${file.name} (${res.data.length} rows)`;
+                document.getElementById('uploadProgress').classList.add('hidden');
+                checkBothFilesLoaded();
+            },
+            error: err => { showAlert('CSV error: ' + err.message, 'error'); document.getElementById('uploadProgress').classList.add('hidden'); }
+        });
+    } else if (['xlsx','xls'].includes(ext)) {
+        readBuf(file, buf => {
+            try {
+                const wb = XLSX.read(new Uint8Array(buf), {type:'array'});
+                rawData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                availableColumns = Object.keys(rawData[0] || {});
+                document.getElementById('dataFileName').textContent = `✓ Loaded: ${file.name} (${rawData.length} rows)`;
+                document.getElementById('uploadProgress').classList.add('hidden');
+                checkBothFilesLoaded();
+            } catch(e) { showAlert('Excel error: '+e.message,'error'); document.getElementById('uploadProgress').classList.add('hidden'); }
+        });
+    } else {
+        showAlert('Please upload CSV or Excel', 'error');
+        document.getElementById('uploadProgress').classList.add('hidden');
+    }
+}
+
+function handleShapefileZipUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    document.getElementById('uploadProgress').classList.remove('hidden');
+    showAlert('Processing zipped shapefile...','info');
+    readBuf(file, buf => {
+        shp(buf).then(geo => {
+            geoData = Array.isArray(geo) ? geo[0] : geo;
+            if (geoData.features && geoData.features.length > 0)
+                geoProperties = Object.keys(geoData.features[0].properties || {});
+            document.getElementById('geoFileName').textContent = `✓ Shapefile: ${file.name} (${geoData.features ? geoData.features.length : 0} features)`;
+            document.getElementById('uploadProgress').classList.add('hidden');
+            checkBothFilesLoaded();
+        }).catch(e => { showAlert('Shapefile error: '+e.message,'error'); document.getElementById('uploadProgress').classList.add('hidden'); });
+    });
+}
+
+function checkShpComponents() {
+    const btn = document.getElementById('processShapefilesBtn');
+    btn.disabled = !(shpBuffer && dbfBuffer);
+    btn.style.background = btn.disabled ? '#004080' : '#28a745';
+    btn.style.borderColor = btn.disabled ? '#004080' : '#28a745';
+}
+
+function processShapefiles() {
+    if (!shpBuffer || !dbfBuffer) { showAlert('Need at least .shp and .dbf files','error'); return; }
+    document.getElementById('uploadProgress').classList.remove('hidden');
+    try {
+        shp.combine([shp.parseShp(shpBuffer, prjBuffer), shp.parseDbf(dbfBuffer)]).then(geo => {
+            geoData = geo;
+            if (geoData.features && geoData.features.length > 0)
+                geoProperties = Object.keys(geoData.features[0].properties || {});
+            document.getElementById('geoFileName').textContent = `✓ Shapefile processed: ${geoData.features ? geoData.features.length : 0} features`;
+            document.getElementById('uploadProgress').classList.add('hidden');
+            showAlert('Shapefile processed!','success');
+            checkBothFilesLoaded();
+        }).catch(e => { showAlert('Error: '+e.message,'error'); document.getElementById('uploadProgress').classList.add('hidden'); });
+    } catch(e) { showAlert('Error: '+e.message,'error'); document.getElementById('uploadProgress').classList.add('hidden'); }
+}
+
+function checkBothFilesLoaded() {
+    if (rawData && geoData) {
+        showAlert('Both files loaded! Configure settings below.','success');
+        populateColumnSelectors();
+        document.getElementById('uploadSection').classList.add('hidden');
+        document.getElementById('configSection').classList.remove('hidden');
+    }
+}
+
+// ─── COLUMN SELECTORS ────────────────────────────────────────────────────────
+function populateColumnSelectors() {
+    const popSel = document.getElementById('populationColumn');
+    const yrSel  = document.getElementById('yearColumn');
+    const excelC = document.getElementById('excelColumnsCheckbox');
+    const shapeC = document.getElementById('shapePropsCheckbox');
+
+    [popSel, yrSel].forEach(s => s.innerHTML = '<option value="">-- Select Column --</option>');
+    excelC.innerHTML = '';
+    shapeC.innerHTML = '';
+
+    availableColumns.forEach(col => {
+        popSel.innerHTML += `<option value="${col}">${col}</option>`;
+        yrSel.innerHTML  += `<option value="${col}">${col}</option>`;
+        excelC.innerHTML += `<label class="checkbox-item"><input type="checkbox" value="${col}" onchange="updateExcelSelection()"><span>${col}</span></label>`;
+    });
+
+    geoProperties.forEach(prop => {
+        shapeC.innerHTML += `<label class="checkbox-item"><input type="checkbox" value="${prop}" onchange="updateShapeSelection()"><span>${prop}</span></label>`;
+    });
+
+    autoSelectColumns();
+}
+
+function autoSelectColumns() {
+    const popPatterns = ['pop','population','popn','total_pop','pop_total'];
+    const yearPatterns = ['year','yr'];
+
+    availableColumns.forEach(col => {
+        const cl = col.toLowerCase();
+        if (popPatterns.some(p => cl.includes(p))) document.getElementById('populationColumn').value = col;
+        if (yearPatterns.some(p => cl === p || cl.startsWith(p))) {
+            document.getElementById('yearColumn').value = col;
+            extractYears(col);
+        }
+    });
+}
+
+function onYearColumnChange() { extractYears(document.getElementById('yearColumn').value); }
+function onPopColumnChange()  { detectAndShowScale(); }
+
+function extractYears(col) {
+    if (!col) return;
+    availableYears = [...new Set(rawData.map(r => r[col]))].filter(y => y).sort();
+    const c = document.getElementById('yearCheckboxes');
+    c.innerHTML = '';
+    availableYears.forEach(y => {
+        c.innerHTML += `<label class="checkbox-item"><input type="checkbox" value="${y}" checked><span>${y}</span></label>`;
+    });
+    detectAndShowScale();
+}
+
+function detectAndShowScale() {
+    const popCol = document.getElementById('populationColumn').value;
+    if (!popCol || !rawData) return;
+
+    const allVals = rawData.map(r => parseFloat(r[popCol])).filter(v => !isNaN(v) && v >= 0);
+    if (!allVals.length) return;
+
+    globalPopMin = Math.min(...allVals);
+    globalPopMax = Math.max(...allVals);
+    const scale   = detectScaleMagnitude(allVals);
+    const box     = document.getElementById('scaleDetectionBox');
+    const txt     = document.getElementById('scaleDetectionText');
+    const rangeLn = document.getElementById('detectedRangeLine');
+
+    box.classList.remove('hidden');
+    txt.innerHTML = `
+        <strong>Range:</strong> ${formatPopFull(globalPopMin)} – ${formatPopFull(globalPopMax)} &nbsp;|&nbsp;
+        <strong>Detected unit:</strong> <span class="scale-badge">${scale.label}</span> &nbsp;|&nbsp;
+        <strong>Legend labels will use:</strong> <span class="scale-badge">${scale.suffix || 'raw'}</span>
+    `;
+    if (rangeLn) rangeLn.textContent = ` | Data range: ${formatPopFull(globalPopMin)} – ${formatPopFull(globalPopMax)}`;
+}
+
+// ─── MERGE COLUMN SELECTION ───────────────────────────────────────────────────
+function updateExcelSelection() {
+    const cbs = document.querySelectorAll('#excelColumnsCheckbox input[type="checkbox"]');
+    selectedExcelColumns = selectedExcelColumns.filter(col => {
+        const cb = document.querySelector(`#excelColumnsCheckbox input[value="${col}"]`);
+        return cb && cb.checked;
+    });
+    cbs.forEach(cb => { if (cb.checked && !selectedExcelColumns.includes(cb.value)) selectedExcelColumns.push(cb.value); });
+    document.getElementById('excelColsList').textContent = selectedExcelColumns.length ? selectedExcelColumns.join(' → ') : 'None';
+}
+
+function updateShapeSelection() {
+    const cbs = document.querySelectorAll('#shapePropsCheckbox input[type="checkbox"]');
+    selectedShapeColumns = selectedShapeColumns.filter(col => {
+        const cb = document.querySelector(`#shapePropsCheckbox input[value="${col}"]`);
+        return cb && cb.checked;
+    });
+    cbs.forEach(cb => { if (cb.checked && !selectedShapeColumns.includes(cb.value)) selectedShapeColumns.push(cb.value); });
+    document.getElementById('shapeColsList').textContent = selectedShapeColumns.length ? selectedShapeColumns.join(' → ') : 'None';
+}
+
+function clearMergeSelections() {
+    selectedExcelColumns = []; selectedShapeColumns = [];
+    document.querySelectorAll('#excelColumnsCheckbox input').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#shapePropsCheckbox input').forEach(cb => cb.checked = false);
+    document.getElementById('excelColsList').textContent = 'None';
+    document.getElementById('shapeColsList').textContent = 'None';
+    document.getElementById('mergePreview').classList.add('hidden');
+}
+
+function previewMerge() {
+    const lc = selectedExcelColumns, gc = selectedShapeColumns;
+    if (!lc.length || !gc.length) { showAlert('Select at least one column from each side','error'); return; }
+    if (lc.length !== gc.length)   { showAlert(`Mismatch: ${lc.length} Excel vs ${gc.length} Shapefile columns`,'error'); return; }
+
+    const excelKeys  = new Set(rawData.map(r => lc.map(c => String(r[c]||'').trim().toLowerCase()).join('|')));
+    const shapeKeys  = new Set();
+    const shapeNames = {};
+    geoData.features.forEach(f => {
+        const k = gc.map(c => String(f.properties[c]||'').trim().toLowerCase()).join('|');
+        shapeKeys.add(k);
+        shapeNames[k] = gc.map(c => f.properties[c]).join(' - ');
+    });
+
+    const matches   = [...excelKeys].filter(k => shapeKeys.has(k));
+    const excelOnly = [...excelKeys].filter(k => !shapeKeys.has(k));
+    const shapeOnly = [...shapeKeys].filter(k => !excelKeys.has(k));
+
+    document.getElementById('mergePreviewContent').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem;">
+            <div style="text-align:center;padding:0.5rem;background:#d4edda;border-radius:4px;">
+                <div style="font-size:24px;font-weight:700;color:#155724;">${matches.length}</div>
+                <div style="font-size:11px;color:#155724;">Matched (will map)</div>
+            </div>
+            <div style="text-align:center;padding:0.5rem;background:#fff3cd;border-radius:4px;">
+                <div style="font-size:24px;font-weight:700;color:#856404;">${excelOnly.length}</div>
+                <div style="font-size:11px;color:#856404;">Excel only</div>
+            </div>
+            <div style="text-align:center;padding:0.5rem;background:#f8d7da;border-radius:4px;">
+                <div style="font-size:24px;font-weight:700;color:#721c24;">${shapeOnly.length}</div>
+                <div style="font-size:11px;color:#721c24;">Shape only</div>
+            </div>
+        </div>
+        <div style="font-size:12px;"><strong>Merge Keys:</strong> ${lc.join(' + ')} ↔ ${gc.join(' + ')}</div>
+        ${excelOnly.length > 0 && excelOnly.length <= 10 ? `<div style="font-size:11px;margin-top:0.5rem;color:#856404;"><strong>Unmatched (Excel):</strong> ${excelOnly.slice(0,5).join(', ')}${excelOnly.length>5?'...':''}</div>` : ''}
+        ${shapeOnly.length > 0 && shapeOnly.length <= 10 ? `<div style="font-size:11px;margin-top:0.5rem;color:#721c24;"><strong>Unmatched (Shape):</strong> ${shapeOnly.slice(0,5).map(k=>shapeNames[k]||k).join(', ')}${shapeOnly.length>5?'...':''}</div>` : ''}
+    `;
+    document.getElementById('mergePreview').classList.remove('hidden');
+    showAlert(matches.length ? `${matches.length} locations matched.` : 'No matches found! Check column values.', matches.length ? 'success' : 'error');
+}
+
+// ─── PALETTE & YEAR HELPERS ───────────────────────────────────────────────────
+function selectPalette(el) {
+    document.querySelectorAll('.color-palette-option').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPalette = el.dataset.palette;
+}
+
+function selectAllYears()   { document.querySelectorAll('#yearCheckboxes input').forEach(cb => cb.checked = true); }
+function deselectAllYears() { document.querySelectorAll('#yearCheckboxes input').forEach(cb => cb.checked = false); }
+
+// ─── CLASSIFICATION PANEL TOGGLE ─────────────────────────────────────────────
+
+
+
+
+
+
+
+
+// ─── MAIN GENERATE ────────────────────────────────────────────────────────────
+function generateMapsMain() {
+    const popCol  = document.getElementById('populationColumn').value;
+    const yearCol = document.getElementById('yearColumn').value;
+    const lc = selectedExcelColumns, gc = selectedShapeColumns;
+
+    if (!popCol || !yearCol) { showAlert('Select Population and Year columns','error'); return; }
+    if (!lc.length || !gc.length) { showAlert('Select merge columns from both sides','error'); return; }
+    if (lc.length !== gc.length)  { showAlert('Merge column count mismatch','error'); return; }
+
+    const selectedYears = Array.from(document.querySelectorAll('#yearCheckboxes input:checked')).map(cb => cb.value);
+    if (!selectedYears.length) { showAlert('Select at least one year','error'); return; }
+
+    window.mergeConfig = { lc, gc };
+
+    document.getElementById('configSection').classList.add('hidden');
+    document.getElementById('processingSection').classList.remove('hidden');
+
+    setTimeout(() => {
+        // Build shape key → display name
+        const shapeKeyToName = {};
+        geoData.features.forEach(f => {
+            const k = gc.map(c => String(f.properties[c]||'').trim().toLowerCase()).join('|');
+            shapeKeyToName[k] = gc.map(c => f.properties[c]).join(' - ');
+        });
+
+        // Aggregate population per location-year
+        popResults = {};
+        rawData.forEach(row => {
+            const year = String(row[yearCol]);
+            if (!selectedYears.includes(year)) return;
+            const locKey = lc.map(c => String(row[c]||'').trim().toLowerCase()).join('|');
+            if (!shapeKeyToName[locKey]) return;
+            const pop = parseFloat(row[popCol]) || 0;
+
+            if (!popResults[locKey]) popResults[locKey] = { displayName: shapeKeyToName[locKey] };
+            if (!popResults[locKey][year]) popResults[locKey][year] = 0;
+            popResults[locKey][year] += pop;
+        });
+
+        // Compute global min/max
+        const allPops = [];
+        Object.values(popResults).forEach(loc => {
+            selectedYears.forEach(y => { if (loc[y] != null) allPops.push(loc[y]); });
+        });
+        globalPopMin = allPops.length ? Math.min(...allPops) : 0;
+        globalPopMax = allPops.length ? Math.max(...allPops) : 0;
+
+        window.currentSelectedYears = selectedYears;
+        displayResults(selectedYears, allPops);
+    }, 400);
+}
+
+// ─── DISPLAY RESULTS ─────────────────────────────────────────────────────────
+function displayResults(selectedYears, allPops) {
+    document.getElementById('processingSection').classList.add('hidden');
+    document.getElementById('resultsSection').classList.remove('hidden');
+
+    const scale = detectScaleMagnitude(allPops);
+    const avg   = allPops.length ? allPops.reduce((a,b)=>a+b,0) / allPops.length : 0;
+    const locs  = Object.keys(popResults).length;
+
+    // ── Population Growth Rate ────────────────────────────────────────────────
+    // Sort years numerically. For each location that has both first & last year,
+    // compute CAGR = ((popLast / popFirst)^(1/n) - 1) × 100
+    // Then report the median CAGR across all locations as the headline figure.
+    const sortedYears = [...selectedYears].sort((a,b) => Number(a) - Number(b));
+    const firstYear   = sortedYears[0];
+    const lastYear    = sortedYears[sortedYears.length - 1];
+    const nYears      = Number(lastYear) - Number(firstYear);
+
+    const growthRates = []; // CAGR per location (%)
+    Object.values(popResults).forEach(loc => {
+        const p0 = loc[firstYear];
+        const p1 = loc[lastYear];
+        if (p0 != null && p1 != null && p0 > 0) {
+            const cagr = nYears > 0
+                ? (Math.pow(p1 / p0, 1 / nYears) - 1) * 100
+                : ((p1 - p0) / p0) * 100;
+            growthRates.push(cagr);
+        }
+    });
+
+    // Median CAGR
+    let medianGrowth = null, minGrowth = null, maxGrowth = null;
+    if (growthRates.length) {
+        const sorted = [...growthRates].sort((a,b)=>a-b);
+        const mid    = Math.floor(sorted.length / 2);
+        medianGrowth = sorted.length % 2 === 0 ? (sorted[mid-1]+sorted[mid])/2 : sorted[mid];
+        minGrowth    = sorted[0];
+        maxGrowth    = sorted[sorted.length - 1];
+    }
+
+    const fmtGrowth = v => v == null ? 'N/A' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+    const growthColor = v => v == null ? '#004080' : v > 0 ? '#28a745' : v < 0 ? '#dc3545' : '#004080';
+    const growthLabel = nYears > 1
+        ? `CAGR ${firstYear}–${lastYear}`
+        : `Growth ${firstYear}–${lastYear}`;
+    const growthNote  = nYears > 1
+        ? `Compound annual growth rate over ${nYears} yr${nYears>1?'s':''}`
+        : `Simple growth rate`;
+
+    document.getElementById('summaryStats').innerHTML = `
+        <div class="stats-card">
+            <h4>Matched Locations</h4>
+            <div class="metric-value">${locs}</div><p>Inner join result</p>
+        </div>
+        <div class="stats-card">
+            <h4>Population Growth Rate</h4>
+            <div class="metric-value" style="color:${growthColor(medianGrowth)}">${fmtGrowth(medianGrowth)}</div>
+            <p style="font-size:10px;">${growthLabel} (median)</p>
+        </div>
+        <div class="stats-card">
+            <h4>Min Population</h4>
+            <div class="metric-value">${formatPopLabel(globalPopMin, scale)}</div><p>${formatPopFull(globalPopMin)}</p>
+        </div>
+        <div class="stats-card">
+            <h4>Max Population</h4>
+            <div class="metric-value">${formatPopLabel(globalPopMax, scale)}</div><p>${formatPopFull(globalPopMax)}</p>
+        </div>
+        <div class="stats-card">
+            <h4>Avg Population</h4>
+            <div class="metric-value">${formatPopLabel(avg, scale)}</div><p>Per location-year</p>
+        </div>
+        <div class="stats-card">
+            <h4>Scale Unit</h4>
+            <div class="metric-value" style="font-size:1.1rem;">${scale.label}</div><p>Auto-detected</p>
+        </div>
+    `;
+
+    generateMaps(selectedYears, scale);
+    generateTable(selectedYears, scale);
+    showAlert('Population maps generated!','success');
+}
+
+// ─── DRAW MAPS ────────────────────────────────────────────────────────────────
+function generateMaps(selectedYears, scale) {
+    const cols       = parseInt(document.getElementById('mapColumns').value);
+    const mapWidth   = parseInt(document.getElementById('mapWidth').value);
+    const mapHeight  = parseInt(document.getElementById('mapHeight').value);
+    const legendType = document.getElementById('legendType').value;
+    const scope      = document.getElementById('scaleScope').value;
+
+    // Global min/max across ALL selected years
+    const allPops = [];
+    Object.values(popResults).forEach(loc => {
+        selectedYears.forEach(y => { if (loc[y] != null) allPops.push(loc[y]); });
+    });
+    const globalMin = allPops.length ? Math.min(...allPops) : 0;
+    const globalMax = allPops.length ? Math.max(...allPops) : 1;
+
+    window.mapConfig = { cols, mapWidth, mapHeight, legendType, scope, selectedYears, scale, globalMin, globalMax };
+
+    const container = document.getElementById('mapsContainer');
+    container.innerHTML = '';
+    container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+    // Shared legend
+    const sharedLegCont = document.getElementById('sharedLegendContainer');
+    const sharedLeg     = document.getElementById('sharedLegend');
+    if (legendType === 'shared') {
+        sharedLegCont.classList.remove('hidden');
+        document.getElementById('sharedLegendTitle').textContent = `Population (${scale.label})`;
+        renderContinuousLegend(sharedLeg, globalMin, globalMax, scale, colorPalettes[selectedPalette]);
+    } else {
+        sharedLegCont.classList.add('hidden');
+    }
+
+    selectedYears.forEach((year, idx) => {
+        let minV = globalMin, maxV = globalMax;
+        if (scope === 'peryear') {
+            const yp = Object.values(popResults).map(loc => loc[year]).filter(v => v != null);
+            minV = yp.length ? Math.min(...yp) : 0;
+            maxV = yp.length ? Math.max(...yp) : 1;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'map-wrapper';
+        wrapper.id = `map-wrapper-${year}`;
+        wrapper.innerHTML = `
+            <h5>Year: ${year}</h5>
+            <canvas id="map-${year}" class="map-canvas" width="${mapWidth}" height="${mapHeight}"></canvas>
+            ${legendType === 'individual' ? `<div class="legend-container" id="legend-${year}"></div>` : ''}
+            <button class="btn btn-secondary" style="margin-top:10px;padding:8px 16px;font-size:12px;" onclick="downloadSingleMap('${year}')">Download</button>
+        `;
+        container.appendChild(wrapper);
+
+        setTimeout(() => {
+            drawMap(`map-${year}`, year, minV, maxV, scale);
+            if (legendType === 'individual') {
+                renderContinuousLegend(document.getElementById(`legend-${year}`), minV, maxV, scale, colorPalettes[selectedPalette]);
+            }
+        }, 50 * idx);
+    });
+}
+
+// Continuous colour: smoothly interpolate palette from minV to maxV
+function getColorContinuous(value, minV, maxV, palette) {
+    if (value == null || isNaN(value)) return '#cccccc';
+    const range = maxV - minV;
+    const t = range === 0 ? 0.5 : Math.max(0, Math.min(1, (value - minV) / range));
+    return interpolatePalette(palette, t);
+}
+
+function drawMap(canvasId, year, minV, maxV, scale) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const palette = colorPalettes[selectedPalette];
+    const gc = window.mergeConfig.gc;
+
+    ctx.fillStyle = '#e8eef4';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!geoData || !geoData.features) return;
+
+    // Bounding box
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    geoData.features.forEach(f => {
+        eachCoord(f.geometry, c => {
+            minX = Math.min(minX, c[0]); maxX = Math.max(maxX, c[0]);
+            minY = Math.min(minY, c[1]); maxY = Math.max(maxY, c[1]);
+        });
+    });
+
+    const pad = 20;
+    const sx = (W - pad*2) / (maxX - minX);
+    const sy = (H - pad*2) / (maxY - minY);
+    const s  = Math.min(sx, sy);
+    const ox = pad + (W - pad*2 - (maxX-minX)*s) / 2;
+    const oy = pad + (H - pad*2 - (maxY-minY)*s) / 2;
+
+    const T = c => [ox + (c[0]-minX)*s, H - (oy + (c[1]-minY)*s)];
+
+    // Draw fills first (no stroke) then redraw outlines — avoids fill covering adjacent strokes
+    geoData.features.forEach(f => {
+        const locKey = gc.map(c => String(f.properties[c]||'').trim().toLowerCase()).join('|');
+        const pop = popResults[locKey] ? popResults[locKey][year] : null;
+        ctx.fillStyle = pop != null ? getColorContinuous(pop, minV, maxV, palette) : '#cccccc';
+        ctx.strokeStyle = 'none';
+        ctx.lineWidth = 0;
+        drawGeometryFillOnly(ctx, f.geometry, T);
+    });
+    // Now draw borders on top
+    ctx.strokeStyle = '#555555';
+    ctx.lineWidth = 0.7;
+    geoData.features.forEach(f => {
+        drawGeometryStrokeOnly(ctx, f.geometry, T);
+    });
+
+    canvas.mapData = { year, minV, maxV, scale, gc };
+}
+
+function eachCoord(geom, cb) {
+    if (geom.type === 'Polygon') geom.coordinates[0].forEach(cb);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(p => p[0].forEach(cb));
+}
+
+function drawGeometryFillOnly(ctx, geom, T) {
+    if (geom.type === 'Polygon') drawPolyFill(ctx, geom.coordinates, T);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(p => drawPolyFill(ctx, p, T));
+}
+
+function drawGeometryStrokeOnly(ctx, geom, T) {
+    if (geom.type === 'Polygon') drawPolyStroke(ctx, geom.coordinates, T);
+    else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(p => drawPolyStroke(ctx, p, T));
+}
+
+function drawPolyFill(ctx, coords, T) {
+    ctx.beginPath();
+    coords.forEach(ring => {
+        ring.forEach((c,i) => { const [x,y]=T(c); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+        ctx.closePath();
+    });
+    ctx.fill();
+}
+
+function drawPolyStroke(ctx, coords, T) {
+    ctx.beginPath();
+    coords.forEach(ring => {
+        ring.forEach((c,i) => { const [x,y]=T(c); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+        ctx.closePath();
+    });
+    ctx.stroke();
+}
+
+// Keep old drawGeometry/drawPoly for backward compat in download functions
+function drawGeometry(ctx, geom, T) { drawGeometryFillOnly(ctx, geom, T); }
+function drawPoly(ctx, coords, T)   { drawPolyFill(ctx, coords, T); }
+
+// ─── CONTINUOUS GRADIENT LEGEND ──────────────────────────────────────────────
+function renderContinuousLegend(container, minV, maxV, scale, palette) {
+    if (!container) return;
+    const gradientCSS = palette.join(', ');
+    // Generate 5 evenly-spaced tick labels
+    const ticks = [0, 0.25, 0.5, 0.75, 1].map(t => {
+        const v = minV + t * (maxV - minV);
+        return `<span>${formatPopLabel(v, scale)}</span>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="legend-title" style="text-align:center;margin-bottom:6px;">Population (${scale.label})</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:0 4px;">
+            <span style="font-size:10px;color:#666;white-space:nowrap;">${formatPopLabel(minV, scale)}</span>
+            <div style="flex:1;height:18px;border-radius:4px;background:linear-gradient(to right,${gradientCSS});border:1px solid #aaa;"></div>
+            <span style="font-size:10px;color:#666;white-space:nowrap;">${formatPopLabel(maxV, scale)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#888;padding:2px 4px;margin-top:2px;">
+            ${ticks}
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:6px;font-size:10px;color:#666;">
+            <div style="width:14px;height:10px;background:#cccccc;border:1px solid #999;border-radius:2px;"></div><span>No data</span>
+        </div>
+    `;
+}
+
+// ─── TABLE ────────────────────────────────────────────────────────────────────
+function generateTable(selectedYears, scale) {
+    const tbl = document.getElementById('popTable');
+    const sortedYears = [...selectedYears].sort((a,b) => Number(a) - Number(b));
+    const firstYear   = sortedYears[0];
+    const lastYear    = sortedYears[sortedYears.length - 1];
+    const nYears      = Number(lastYear) - Number(firstYear);
+    const showGrowth  = selectedYears.length >= 2;
+    const growthLabel = nYears > 1 ? `CAGR (${firstYear}→${lastYear})` : `Growth (${firstYear}→${lastYear})`;
+
+    let html = '<thead><tr><th>Location</th>';
+    selectedYears.forEach(y => html += `<th>Population ${y}</th>`);
+    if (showGrowth) html += `<th>${growthLabel}</th>`;
+    html += '</tr></thead><tbody>';
+
+    Object.keys(popResults).sort().forEach(k => {
+        const loc = popResults[k];
+        html += `<tr><td>${loc.displayName || k}</td>`;
+        selectedYears.forEach(y => {
+            const v = loc[y];
+            html += v != null
+                ? `<td title="${formatPopFull(v)}">${formatPopLabel(v, scale)}</td>`
+                : '<td style="color:#999;">N/A</td>';
+        });
+        if (showGrowth) {
+            const p0 = loc[firstYear], p1 = loc[lastYear];
+            if (p0 != null && p1 != null && p0 > 0) {
+                const gr = nYears > 1
+                    ? (Math.pow(p1/p0, 1/nYears) - 1) * 100
+                    : ((p1-p0)/p0) * 100;
+                const color = gr > 0 ? '#28a745' : gr < 0 ? '#dc3545' : '#666';
+                html += `<td style="color:${color};font-weight:700;">${gr>=0?'+':''}${gr.toFixed(2)}%</td>`;
+            } else {
+                html += '<td style="color:#999;">N/A</td>';
+            }
+        }
+        html += '</tr>';
+    });
+
+    html += '</tbody>';
+    tbl.innerHTML = html;
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function downloadExcel() {
+    const years = window.currentSelectedYears || [];
+    const sortedYears = [...years].sort((a,b) => Number(a)-Number(b));
+    const firstYear = sortedYears[0], lastYear = sortedYears[sortedYears.length-1];
+    const nYears = Number(lastYear) - Number(firstYear);
+    const rows  = [];
+    Object.keys(popResults).sort().forEach(k => {
+        const loc = popResults[k];
+        const row = { Location: loc.displayName || k };
+        years.forEach(y => { row[`Population ${y}`] = loc[y] != null ? loc[y] : ''; });
+        if (years.length >= 2) {
+            const p0 = loc[firstYear], p1 = loc[lastYear];
+            const gr = (p0 != null && p1 != null && p0 > 0)
+                ? (nYears > 1 ? (Math.pow(p1/p0,1/nYears)-1)*100 : ((p1-p0)/p0)*100)
+                : null;
+            row[nYears > 1 ? `CAGR % (${firstYear}-${lastYear})` : `Growth % (${firstYear}-${lastYear})`] = gr != null ? parseFloat(gr.toFixed(4)) : '';
+        }
+        rows.push(row);
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Population Data');
+    XLSX.writeFile(wb, 'population_data.xlsx');
+    showAlert('Excel downloaded!','success');
+}
+
+function downloadCSV() {
+    const years = window.currentSelectedYears || [];
+    const sortedYears = [...years].sort((a,b) => Number(a)-Number(b));
+    const firstYear = sortedYears[0], lastYear = sortedYears[sortedYears.length-1];
+    const nYears = Number(lastYear) - Number(firstYear);
+    const rows  = [];
+    Object.keys(popResults).sort().forEach(k => {
+        const loc = popResults[k];
+        const row = { Location: loc.displayName || k };
+        years.forEach(y => { row[`Population ${y}`] = loc[y] != null ? loc[y] : ''; });
+        if (years.length >= 2) {
+            const p0 = loc[firstYear], p1 = loc[lastYear];
+            const gr = (p0 != null && p1 != null && p0 > 0)
+                ? (nYears > 1 ? (Math.pow(p1/p0,1/nYears)-1)*100 : ((p1-p0)/p0)*100)
+                : null;
+            row[nYears > 1 ? `CAGR % (${firstYear}-${lastYear})` : `Growth % (${firstYear}-${lastYear})`] = gr != null ? parseFloat(gr.toFixed(4)) : '';
+        }
+        rows.push(row);
+    });
+    const blob = new Blob([Papa.unparse(rows)], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'population_data.csv';
+    a.click();
+    showAlert('CSV downloaded!','success');
+}
+
+
+// Draw a continuous gradient legend bar onto an existing canvas context
+function drawCanvasGradientLegend(ctx, minV, maxV, scale, palette, x, y, w, h) {
+    const grad = ctx.createLinearGradient(x, 0, x + w, 0);
+    palette.forEach((c, i) => grad.addColorStop(i / (palette.length - 1), c));
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 0.8;
+    ctx.strokeRect(x, y, w, h);
+    // 5 tick marks
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
+    ctx.fillStyle = '#333'; ctx.font = '10px Oswald, sans-serif';
+    ticks.forEach(t => {
+        const v  = minV + t * (maxV - minV);
+        const tx = x + t * w;
+        ctx.beginPath(); ctx.moveTo(tx, y + h); ctx.lineTo(tx, y + h + 4); ctx.strokeStyle='#555'; ctx.lineWidth=0.8; ctx.stroke();
+        ctx.textAlign = t === 0 ? 'left' : t === 1 ? 'right' : 'center';
+        ctx.fillText(formatPopLabel(v, scale), tx, y + h + 14);
+    });
+    // No data swatch
+    ctx.fillStyle = '#cccccc'; ctx.fillRect(x + w + 10, y, 14, h);
+    ctx.strokeStyle='#888'; ctx.strokeRect(x + w + 10, y, 14, h);
+    ctx.fillStyle='#333'; ctx.font='9px Oswald, sans-serif'; ctx.textAlign='left';
+    ctx.fillText('No data', x + w + 10, y + h + 10);
+}
+
+function downloadSingleMap(year) {
+    const mapCanvas = document.getElementById(`map-${year}`);
+    if (!mapCanvas) return;
+    const md      = mapCanvas.mapData;
+    const palette = colorPalettes[selectedPalette];
+    const scale   = md.scale;
+    const minV    = md.minV, maxV = md.maxV;
+
+    const titleH  = 44;
+    const legendH = 50;
+    const pad     = 14;
+    const W = mapCanvas.width + pad*2;
+    const H = titleH + mapCanvas.height + legendH + pad;
+
+    const ec = document.createElement('canvas');
+    ec.width = W; ec.height = H;
+    const ctx = ec.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    // Title
+    ctx.fillStyle = '#004080';
+    ctx.font = 'bold 17px Oswald, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Population – Year: ${year}`, W/2, 30);
+
+    // Map
+    ctx.drawImage(mapCanvas, pad, titleH);
+
+    // Continuous gradient legend
+    const lyY  = titleH + mapCanvas.height + 10;
+    const lgW  = W - 80;
+    const lgX  = 30;
+    ctx.fillStyle = '#004080';
+    ctx.font = 'bold 11px Oswald, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Population (${scale.label})`, W/2, lyY);
+    drawCanvasGradientLegend(ctx, minV, maxV, scale, palette, lgX, lyY + 6, lgW, 14);
+
+    const a = document.createElement('a');
+    a.download = `population_map_${year}.png`;
+    a.href = ec.toDataURL('image/png');
+    a.click();
+    showAlert(`Map for ${year} downloaded!`, 'success');
+}
+
+function downloadSubplotImage() {
+    const cfg  = window.mapConfig;
+    if (!cfg) { showAlert('No maps to download','error'); return; }
+
+    const years   = cfg.selectedYears;
+    const cols    = cfg.cols;
+    const rows    = Math.ceil(years.length / cols);
+    const mW      = cfg.mapWidth;
+    const mH      = cfg.mapHeight;
+    const palette = colorPalettes[selectedPalette];
+
+    const titleH  = 55;
+    const cellTH  = 26;
+    const legendH = 80;
+    const cellPad = 14;
+    const mainPad = 20;
+
+    const cellW = mW + cellPad * 2;
+    const cellH = mH + cellTH + cellPad;
+    const W     = cols * cellW + mainPad * 2;
+    const H     = titleH + rows * cellH + legendH + mainPad;
+
+    const ec = document.createElement('canvas');
+    ec.width = W; ec.height = H;
+    const ctx = ec.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    // Header bar
+    ctx.fillStyle = '#004080';
+    ctx.fillRect(0, 0, W, titleH - 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px Oswald, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Population Distribution by Year', W/2, 33);
+    ctx.font = '13px Oswald, sans-serif';
+    ctx.fillText(`Scale: ${cfg.scale.label}  |  Continuous gradient`, W/2, 50);
+
+    years.forEach((year, idx) => {
+        const row = Math.floor(idx / cols);
+        const col = idx % cols;
+        const x = mainPad + col * cellW + cellPad;
+        const y = titleH + row * cellH;
+
+        ctx.fillStyle = '#004080';
+        ctx.font = 'bold 13px Oswald, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Year: ${year}`, x + mW/2, y + 18);
+
+        const mc = document.getElementById(`map-${year}`);
+        if (mc) {
+            ctx.drawImage(mc, x, y + cellTH);
+            ctx.strokeStyle = '#004080'; ctx.lineWidth = 1.5;
+            ctx.strokeRect(x-1, y+cellTH-1, mW+2, mH+2);
+        }
+    });
+
+    // Bottom continuous gradient legend
+    const scale   = cfg.scale;
+    const minV    = cfg.globalMin, maxV = cfg.globalMax;
+    const lyY     = titleH + rows * cellH + 14;
+    const lgW     = Math.min(W - 100, 450);
+    const lgX     = (W - lgW) / 2;
+
+    ctx.fillStyle = '#004080';
+    ctx.font = 'bold 13px Oswald, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Population (${scale.label})`, W/2, lyY);
+    drawCanvasGradientLegend(ctx, minV, maxV, scale, palette, lgX, lyY + 8, lgW, 16);
+
+    // Footer
+    ctx.fillStyle = '#004080';
+    ctx.fillRect(0, H-22, W, 22);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '11px Oswald, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('© 2025 Informatics Consultancy Firm-Sierra Leone (ICF-SL)  |  National Malaria Control Programme', W/2, H-7);
+
+    const a = document.createElement('a');
+    a.download = 'population_choropleth_subplots.png';
+    a.href = ec.toDataURL('image/png');
+    a.click();
+    showAlert('Subplot image downloaded!','success');
+}
+
+function downloadAllMapsIndividual() {
+    (window.currentSelectedYears || []).forEach((year, i) => {
+        setTimeout(() => downloadSingleMap(year), i * 500);
+    });
+}
+
+function backToConfig() {
+    document.getElementById('resultsSection').classList.add('hidden');
+    document.getElementById('configSection').classList.remove('hidden');
+}
+
+function resetAll() {
+    rawData = null; geoData = null; popResults = null;
+    availableColumns = []; availableYears = []; geoProperties = [];
+    shpBuffer = null; dbfBuffer = null; shxBuffer = null; prjBuffer = null;
+    window.mergeConfig = null;
+    selectedExcelColumns = []; selectedShapeColumns = [];
+
+    ['uploadSection'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+    ['configSection','processingSection','resultsSection','scaleDetectionBox'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    ['dataFileInput','shapefileZipInput','shpFileInput','dbfFileInput','shxFileInput','prjFileInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    ['dataFileName','geoFileName','shpFileName','dbfFileName','shxFileName','prjFileName'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=''; });
+    document.getElementById('processShapefilesBtn').disabled = true;
+    document.getElementById('mergePreview').classList.add('hidden');
+    document.getElementById('alertContainer').innerHTML = '';
+}
+</script>
+</body>
+</html>
